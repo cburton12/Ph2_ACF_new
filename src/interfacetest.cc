@@ -100,10 +100,9 @@ int main( int argc, char* argv[] )
 	if ( cSingle )
 	{
 		t.start();
-
+		
 		CbcWriter pWriter( cSystemController.fCbcInterface );
 		cSystemController.accept( pWriter );
-
 		t.stop();
 		t.show( "Time to write a single Register on all CBC s" );
 		CbcRegReader cReader( cSystemController.fCbcInterface, "VCth" );

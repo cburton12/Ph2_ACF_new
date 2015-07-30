@@ -77,8 +77,15 @@ int main( int argc, char* argv[] )
 
 	uint8_t cStartLatency = ( cmd.foundOption( "minimum" ) ) ? convertAnyInt( cmd.optionValue( "minimum" ).c_str() ) :  0;
 	uint8_t cLatencyRange = ( cmd.foundOption( "range" ) ) ?  convertAnyInt( cmd.optionValue( "range" ).c_str() ) :  10;
-
-
+   
+	uint8_t puppies = 100;
+	int pp =10000;
+	std::cout<<"minimum:  "<<int(cStartLatency)<<std::endl;
+	std::cout<<"range:    "<<int(cLatencyRange)<<std::endl;
+	std::cout<<"test:     "<<int(puppies)<<std::endl;
+	std::cout<<"anothertest"<<pp<<std::endl;
+	//std::cout<<"cmd.foundoption( minimum): "<<cmd.foundoption( "minimum")<<std::endl;
+	//std::cout<<"cmd.foundoption( range):   "<<cmd.foundoption( "range")<<std::endl;
 	TApplication cApp( "Root Application", &argc, argv );
 	if ( batchMode ) gROOT->SetBatch( true );
 	else TQObject::Connect( "TCanvas", "Closed()", "TApplication", &cApp, "Terminate()" );
@@ -92,9 +99,11 @@ int main( int argc, char* argv[] )
 	else if ( cThreshold ) cResultfile = "Threshold";
 	else cResultfile = "Commissioning";
 	cCommissioning.InitResultFile( cResultfile );
-	if ( !gui ) cCommissioning.ConfigureHw();
-
+	//if ( !gui ) cCommissioning.ConfigureHw();
+        std::cout<<"minimum:  "<<int(cStartLatency)<<std::endl;
+	std::cout<<"range:    "<<int(cLatencyRange)<<std::endl;
 	// Here comes our Part:
+	std::cout<<"our part"<<std::endl;
 	if ( cLatency ) cCommissioning.ScanLatency( cStartLatency, cLatencyRange );
 	if ( cStubLatency ) cCommissioning.ScanStubLatency( cStartLatency, cLatencyRange );
 	if ( cThreshold ) cCommissioning.ScanThreshold( cScanPedestal );

@@ -21,10 +21,10 @@ ExtObjectsRoot= -lPh2_Tools
 # %.o: %.cc %.h
 # 	$(CXX) -std=c++11 $(DevFlags) $(CCFlags) $(UserCCFlags) $(CCDefines) $(IncludePaths) -c -o $@ $<
 
-binaries=systemtest datatest interfacetest hybridtest cmtest calibrate commission
+binaries=systemtest datatest interfacetest hybridtest cmtest calibrate commission channeltest histogram timewalk single ThScan
 binariesNoRoot=systemtest datatest interfacetest
 
-all: rootflags clean $(binaries) 
+all: rootflags $(binaries) 
 
 rootflags:
 	$(eval CCFlags += $(CCFlagsRoot))
@@ -59,6 +59,27 @@ cmtest: cmtest.cc
 commission: commission.cc
 	$(CXX) -std=c++11 $(CCFlags) -o $@ $< $(IncludePaths) $(ExternalObjects)
 	cp $@ ../bin
+
+channeltest: channeltest.cc
+	$(CXX) -std=c++11 $(CCFlags) -o $@ $< $(IncludePaths) $(ExternalObjects)
+	cp $@ ../bin
+
+histogram: histogram.cc
+	$(CXX) -std=c++11 $(CCFlags) -o $@ $< $(IncludePaths) $(ExternalObjects)
+	cp $@ ../bin
+
+timewalk: timewalk.cc
+	$(CXX) -std=c++11 $(CCFlags) -o $@ $< $(IncludePaths) $(ExternalObjects)
+	cp $@ ../bin
+
+single: single.cc
+	$(CXX) -std=c++11 $(CCFlags) -o $@ $< $(IncludePaths) $(ExternalObjects)
+	cp $@ ../bin
+
+ThScan: ThScan.cc
+	$(CXX) -std=c++11 $(CCFlags) -o $@ $< $(IncludePaths) $(ExternalObjects)
+	cp $@ ../bin
+
 
 .PHONY: clean
 
