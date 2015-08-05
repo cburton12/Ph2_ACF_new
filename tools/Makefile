@@ -1,4 +1,4 @@
-Objs                    = Calibration.o FastCalibration.o Channel.o HybridTester.o CMTester.o  Commissioning.o
+Objs                    = Calibration.o FastCalibration.o Channel.o HybridTester.o CMTester.o  Commissioning.o ChannelTester.o HistogramMaker.o TimeWalker.o SingleTester.o ThresholdScanner.o DelayScan.o
 CC              = gcc
 CXX             = g++
 CCFlags         = -g -O1 -w -Wall -pedantic -fPIC `root-config --cflags --evelibs` -Wcpp

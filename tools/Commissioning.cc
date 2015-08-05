@@ -31,183 +31,236 @@ void Commissioning::Initialize()
 
 std::map<Module*, uint8_t> Commissioning::ScanLatency( uint8_t pStartLatency, uint8_t pLatencyRange )
 {
-	// This is not super clean but should work
-	// Take the default VCth which should correspond to the pedestal and add 8 depending on the mode to exclude noise
-	CbcRegReader cReader( fCbcInterface, "VCth" );
-	this->accept( cReader );
-	uint8_t cVcth = cReader.fRegValue;
+  // This is not super clean but should work
+  // Take the default VCth which should correspond to the pedestal and add 8 depending on the mode to exclude noise
+  CbcRegReader cReader( fCbcInterface, "VCth" );
+  this->accept( cReader );
+  uint8_t cVcth = cReader.fRegValue;
+  std::cout<<"VCth before: "<<int(cVcth)<<std::endl;
+  
+  int cVcthStep = ( fHoleMode == 1 ) ? +20 : -20;
+  std::cout << "VCth from config file: " << +cVcth << "; changing to " << +( cVcth + cVcthStep ) << " supress noise hits for crude latency scan!" << std::endl;
+  cVcth += cVcthStep;
+  std::cout<<"VCth after: "<<int(cVcth)<<std::endl;
+  
+  //  Set that VCth Value on all FEs
+  CbcRegWriter cWriter( fCbcInterface, "VCth", cVcth );
+  this->accept( cWriter );
+  this->accept( cReader );
 
-	int cVcthStep = ( fHoleMode == 1 ) ? +20 : -20;
-	std::cout << "VCth value from config file is: " << +cVcth << " ;  changing by " << cVcthStep << "  to " << +( cVcth + cVcthStep ) << " supress noise hits for crude latency scan!" << std::endl;
-	cVcth += cVcthStep;
+  cWriter.setRegister("Vplus",0);
 
-	//  Set that VCth Value on all FEs
-	CbcRegWriter cWriter( fCbcInterface, "VCth", cVcth );
-	this->accept( cWriter );
-	this->accept( cReader );
-
-	// Now the actual scan
-	std::cout << "Scanning Latency ... " << std::endl;
-
-	for ( uint8_t cLat = pStartLatency; cLat < pStartLatency + pLatencyRange; cLat++ )
+  // Now the actual scan
+  std::cout << "Scanning Latency ... " << std::endl;
+  
+  for ( uint8_t cLat = pStartLatency; cLat < pStartLatency + pLatencyRange; cLat++ )
+    {
+      //  Set a Latency Value on all FEs
+      cWriter.setRegister( "TriggerLatency", cLat );
+      this->accept( cWriter );
+      
+      uint32_t cN = 1;
+      uint32_t cNthAcq = 0;
+      int cNHits = 0;
+      uint8_t prev = 50;
+      uint32_t times =0;
+      
+      // Take Data for all Modules
+      for ( auto& cShelve : fShelveVector )
 	{
-		//  Set a Latency Value on all FEs
-		cWriter.setRegister( "TriggerLatency", cLat );
-		this->accept( cWriter );
-
-		uint32_t cN = 1;
-		uint32_t cNthAcq = 0;
-		int cNHits = 0;
-
-		// Take Data for all Modules
-		for ( auto& cShelve : fShelveVector )
+	  for ( BeBoard* pBoard : cShelve->fBoardVector )
+	    {
+	      fBeBoardInterface->Start( pBoard );
+	      while ( cN <= fNevents )
 		{
-			for ( BeBoard* pBoard : cShelve->fBoardVector )
+		  fBeBoardInterface->ReadData( pBoard, cNthAcq, false );
+		  const Event* cEvent = fBeBoardInterface->GetNextEvent( pBoard );
+		  
+		  std::cout<<"lat: "<<int(cLat)<<std::endl;
+		  std::cout<<"event: "<<*cEvent<<std::endl;
+
+		  while ( cEvent )
+		    {
+		      if ( cN > fNevents )
+			break;
+		      
+		      for ( auto cFe : pBoard->fModuleVector )
+			//if (cLat%4==2) cNHits += countHits( cFe, cEvent, "module_latency", cLat );
+			cNHits += countHits( cFe, cEvent, "module_latency", cLat );
+		      //std::cout<<"cNHits: "<<cNHits<<std::endl;
+		      cN++;
+		      /*
+		      if (cNHits ==0 && prev!=cLat)
 			{
-				fBeBoardInterface->Start( pBoard );
-
-				while ( cN <= fNevents )
-				{
-					if ( cN > fNevents ) break;
-					fBeBoardInterface->ReadData( pBoard, cNthAcq, false );
-					const Event* cEvent = fBeBoardInterface->GetNextEvent( pBoard );
-
-					// Loop over Events from this Acquisition
-					while ( cEvent )
-					{
-						if ( cN > fNevents )
-							break;
-						for ( auto cFe : pBoard->fModuleVector )
-							cNHits += countHits( cFe, cEvent, "module_latency", cLat );
-						cN++;
-
-						if ( cN < fNevents )
-							cEvent = fBeBoardInterface->GetNextEvent( pBoard );
-						else break;
-					}
-					cNthAcq++;
-				}
-				fBeBoardInterface->Stop( pBoard, cNthAcq );
-				std::cout << "Latency " << +cLat << " Hits " << cNHits  << " Events " << cN << std::endl;
-
+			  std::cout<<"times: "<<times<<std::endl;
+			  //std::cout<<int(cLat)<<std::endl;
+			  times = 0;
+			  prev=cLat;
 			}
+		      else
+			{
+			  times ++;
+			}
+		      */
+		      if ( cN < fNevents )
+			cEvent = fBeBoardInterface->GetNextEvent( pBoard );
+		      else break;
+		    }
+		  cNthAcq++;
 		}
-
-		// done counting hits for all FE's, now update the Histograms
-		updateHists( "module_latency", false );
+	      fBeBoardInterface->Stop( pBoard, cNthAcq );
+	      std::cout << "Latency " << +cLat << " Hits " << cNHits  << " Events " << cN << std::endl;
+	    }
 	}
-
-	// analyze the Histograms
-	std::map<Module*, uint8_t> cLatencyMap;
-
-	std::cout << "Identified the Latency with the maximum number of Hits at: " << std::endl;
-
-	for ( auto cFe : fModuleHistMap )
-	{
-		TH1F* cTmpHist = ( TH1F* )getHist( cFe.first, "module_latency" );
-		uint8_t cLatency =  static_cast<uint8_t>( cTmpHist->GetMaximumBin() - 1 );
-		cLatencyMap[cFe.first] = cLatency;
-		cWriter.setRegister( "TriggerLatency", cLatency );
-		this->accept( cWriter );
-
-		std::cout << "	FE " << +cFe.first->getModuleId()  << ": " << +cLatency << " clock cycles!" << std::endl;
-	}
-
-	return cLatencyMap;
+      updateHists( "module_latency", false );
+    }
+  
+  // analyze the Histograms
+  std::map<Module*, uint8_t> cLatencyMap;
+  
+  std::cout << "Identified the Latency with the maximum number of Hits at: " << std::endl;
+  
+  for ( auto cFe : fModuleHistMap )
+    {
+      TH1F* cTmpHist = ( TH1F* )getHist( cFe.first, "module_latency" );
+      uint8_t cLatency =  static_cast<uint8_t>( cTmpHist->GetMaximumBin() - 1 );
+      cLatencyMap[cFe.first] = cLatency;
+      cWriter.setRegister( "TriggerLatency", cLatency );
+      this->accept( cWriter );
+      
+      std::cout << "	FE " << +cFe.first->getModuleId()  << ": " << +cLatency << " clock cycles!" << std::endl;
+    }
+  
+  return cLatencyMap;
 }
 
 std::map<Module*, uint8_t> Commissioning::ScanStubLatency( uint8_t pStartLatency, uint8_t pLatencyRange )
 {
-	// This is not super clean but should work
-	// Take the default VCth which should correspond to the pedestal and add 8 depending on the mode to exclude noise
-	CbcRegReader cReader( fCbcInterface, "VCth" );
-	this->accept( cReader );
-	uint8_t cVcth = cReader.fRegValue;
+  // This is not super clean but should work
+  // Take the default VCth which should correspond to the pedestal and add 8 depending on the mode to exclude noise
+  uint8_t cVcth = 120;
+  std::cout<<pStartLatency<<std::endl;
+  std::cout<<pLatencyRange<<std::endl;
 
-	int cVcthStep = ( fHoleMode == 1 ) ? +20 : -20;
-	std::cout << "VCth value from config file is: " << +cVcth << " ;  changing by " << cVcthStep << "  to " << +( cVcth + cVcthStep ) << " supress noise hits for crude latency scan!" << std::endl;
-	cVcth += cVcthStep;
 
-	//  Set that VCth Value on all FEs
-	CbcRegWriter cVcthWriter( fCbcInterface, "VCth", cVcth );
-	this->accept( cVcthWriter );
-	this->accept( cReader );
-
-	// Now the actual scan
-	std::cout << "Scanning Stub Latency ... " << std::endl;
-
-	for ( uint8_t cLat = pStartLatency; cLat < pStartLatency + pLatencyRange; cLat++ )
+  CbcRegWriter cWriterTh( fCbcInterface, "VCth", cVcth );
+  accept( cWriterTh );
+  
+  CbcRegReader cReader( fCbcInterface, "VCth" );
+  std::cout<<"arbitrary text"<<std::endl;
+  
+  accept( cReader );
+  
+  std::cout<<"was there an error below?"<<std::endl;
+  //uint8_t cVcth = cReader.fRegValue;
+  std::cout<<int(cReader.fRegValue)<<std::endl;
+  std::cout<<"was there an error above?"<<std::endl;
+  std::cout<<"initial Vcth value is "<<int(cVcth)<<std::endl;
+  int cVcthStep = ( fHoleMode == 1 ) ? +20 : -20;
+  std::cout << "VCth value from config file is: " << int(cVcth) << " ;  changing by " << int(cVcthStep) << "  to " << +int( cVcth + cVcthStep ) << " supress noise hits for crude latency scan!" << std::endl;
+  cVcth += cVcthStep;
+  //(steve heres) it seems like this is only done once...
+  std::cout<<"Vcth after change: "<<int(cVcth)<<std::endl;
+  //  Set that VCth Value on all FEs
+  CbcRegWriter cVcthWriter( fCbcInterface, "VCth", cVcth );
+  this->accept( cVcthWriter );
+  this->accept( cReader );
+  
+  // Now the actual scan
+  std::cout << "Scanning Stub Latency ... change" << std::endl;
+  std::cout << "startlatency value: " << int(pStartLatency) <<std::endl;
+  for ( uint8_t cLat = pStartLatency; cLat < pStartLatency + pLatencyRange; cLat++ )
+    {
+      //  Set a Latency Value on all FEs
+      std::cout<<"marker 1"<<std::endl;
+      BeBoardRegWriter cLatWriter( fBeBoardInterface, "cbc_stubdata_latency_adjust_fe1", cLat );
+      this->accept( cLatWriter );
+      cLatWriter.setRegister( "cbc_stubdata_latency_adjust_fe2", cLat );
+      this->accept( cLatWriter );
+      
+      uint32_t cN = 1;
+      uint32_t cNthAcq = 0;
+      int cNStubs = 0;
+      
+      std::cout<<"latency value: "<<int(cLat)<<std::endl;
+      
+      // Take Data for all Modules
+      for ( auto& cShelve : fShelveVector )
 	{
-		//  Set a Latency Value on all FEs
-		BeBoardRegWriter cLatWriter( fBeBoardInterface, "cbc_stubdata_latency_adjust_fe1", cLat );
-		this->accept( cLatWriter );
-		cLatWriter.setRegister( "cbc_stubdata_latency_adjust_fe2", cLat );
-		this->accept( cLatWriter );
+	  std::cout<<"shelves..."<<std::endl;
+	  for ( BeBoard* pBoard : cShelve->fBoardVector )
+	    {
+	      std::cout<<"boards..."<<std::endl;
 
-		uint32_t cN = 1;
-		uint32_t cNthAcq = 0;
-		int cNStubs = 0;
-
-		// Take Data for all Modules
-		for ( auto& cShelve : fShelveVector )
+	      //fBeBoardInterface->Start( pBoard );
+	      
+	      while ( cN <= fNevents )
 		{
-			for ( BeBoard* pBoard : cShelve->fBoardVector )
-			{
-				fBeBoardInterface->Start( pBoard );
-
-				while ( cN <= fNevents )
-				{
-					if ( cN > fNevents ) break;
-					fBeBoardInterface->ReadData( pBoard, cNthAcq, false );
-					const Event* cEvent = fBeBoardInterface->GetNextEvent( pBoard );
-
-					// if(cN <3 ) std::cout << *cEvent << std::endl;
-
-					// Loop over Events from this Acquisition
-					while ( cEvent )
-					{
-						if ( cN > fNevents )
-							break;
-						for ( auto cFe : pBoard->fModuleVector )
-							cNStubs += countStubs( cFe, cEvent, "module_stub_latency", cLat );
-						cN++;
-
-						if ( cN < fNevents )
-							cEvent = fBeBoardInterface->GetNextEvent( pBoard );
-						else break;
-					}
-					cNthAcq++;
-				}
-				fBeBoardInterface->Stop( pBoard, cNthAcq );
-				std::cout << "Stub Latency " << +cLat << " Stubs " << cNStubs  << " Events " << cN << std::endl;
-
-			}
+		  std::cout<<"acquisition..."<<std::endl;
+		  std::cout<<"cN:       "<<int(cN)<<std::endl;
+		  std::cout<<"fNevents: "<<int(fNevents)<<std::endl;
+		  if ( cN > fNevents ) break;
+		  std::cout<<"finding next acquisition "<<std::endl;
+		  std::cout<<"pBoard Pointer:  "<<pBoard<<std::endl;
+		  std::cout<<"cNthAcq:         "<<int(cNthAcq)<<std::endl;
+		  fBeBoardInterface->Start( pBoard );
+		  fBeBoardInterface->ReadData( pBoard, cNthAcq, false );
+		  fBeBoardInterface->Stop( pBoard, cNthAcq );
+		  std::cout<<"finding next event "<<std::endl;
+		  const Event* cEvent = fBeBoardInterface->GetNextEvent( pBoard );
+		  std::cout<<"next event obtained"<<std::endl;
+		  // if(cN <3 ) std::cout << *cEvent << std::endl;
+		  
+		  // Loop over Events from this Acquisition
+		  while ( cEvent )
+		    {	 
+		      std::cout<<"events..."<<std::endl;
+		      if ( cN > fNevents )
+			break;
+		      
+		      std::cout<<"counting from event: "<<cEvent<<std::endl;
+		      
+		      for ( auto cFe : pBoard->fModuleVector )
+			cNStubs += countStubs( cFe, cEvent, "module_stub_latency", cLat );
+		      cN++;
+		      
+		      
+		      if ( cN < fNevents )
+			cEvent = fBeBoardInterface->GetNextEvent( pBoard );
+		      else break;
+		    }
+		  cNthAcq++;
 		}
-
-		// done counting hits for all FE's, now update the Histograms
-		updateHists( "module_stub_latency", false );
+	      //fBeBoardInterface->Stop( pBoard, cNthAcq );
+	      std::cout << "Stub Latency " << +cLat << " Stubs " << cNStubs  << " Events " << cN << std::endl;
+	      
+	    }
 	}
-
-	// analyze the Histograms
-	std::map<Module*, uint8_t> cStubLatencyMap;
-
-	std::cout << "Identified the Latency with the maximum number of Stubs at: " << std::endl;
-
-	for ( auto cFe : fModuleHistMap )
-	{
-		TH1F* cTmpHist = ( TH1F* )getHist( cFe.first, "module_stub_latency" );
-		uint8_t cStubLatency =  static_cast<uint8_t>( cTmpHist->GetMaximumBin() - 1 );
-		cStubLatencyMap[cFe.first] = cStubLatency;
-
-		BeBoardRegWriter cLatWriter( fBeBoardInterface, "", 0 );
-		if ( cFe.first->getFeId() == 0 ) cLatWriter.setRegister( "cbc_stubdata_latency_adjust_fe1", cStubLatency );
-		else if ( cFe.first->getFeId() == 1 ) cLatWriter.setRegister( "cbc_stubdata_latency_adjust_fe2", cStubLatency );
-		this->accept( cLatWriter );
-
-		std::cout << "Stub Latency FE " << +cFe.first->getModuleId()  << ": " << +cStubLatency << " clock cycles!" << std::endl;
-	}
-
-	return cStubLatencyMap;
+      
+      // done counting hits for all FE's, now update the Histograms
+      updateHists( "module_stub_latency", false );
+    }
+  
+  // analyze the Histograms
+  std::map<Module*, uint8_t> cStubLatencyMap;
+  
+  std::cout << "Identified the Latency with the maximum number of Stubs at: " << std::endl;
+  
+  for ( auto cFe : fModuleHistMap )
+    {
+      TH1F* cTmpHist = ( TH1F* )getHist( cFe.first, "module_stub_latency" );
+      uint8_t cStubLatency =  static_cast<uint8_t>( cTmpHist->GetMaximumBin() - 1 );
+      cStubLatencyMap[cFe.first] = cStubLatency;
+      
+      BeBoardRegWriter cLatWriter( fBeBoardInterface, "", 0 );
+      if ( cFe.first->getFeId() == 0 ) cLatWriter.setRegister( "cbc_stubdata_latency_adjust_fe1", cStubLatency );
+      else if ( cFe.first->getFeId() == 1 ) cLatWriter.setRegister( "cbc_stubdata_latency_adjust_fe2", cStubLatency );
+      this->accept( cLatWriter );
+      
+      std::cout << "Stub Latency FE " << +cFe.first->getModuleId()  << ": " << +cStubLatency << " clock cycles!" << std::endl;
+    }
+  
+  return cStubLatencyMap;
 }
 
 
@@ -306,7 +359,7 @@ int Commissioning::countHits( Module* pFe,  const Event* pEvent, std::string pHi
 	{
 		for ( uint32_t cId = 0; cId < NCHANNELS; cId++ )
 		{
-			if ( pEvent->DataBit( cCbc->getFeId(), cCbc->getCbcId(), cId ) )
+		  if ( pEvent->DataBit( cCbc->getFeId(), cCbc->getCbcId(), cId ))
 			{
 				cTmpHist->Fill( pParameter );
 				cHitCounter++;

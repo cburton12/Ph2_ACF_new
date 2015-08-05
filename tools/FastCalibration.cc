@@ -1,7 +1,27 @@
 #include "FastCalibration.h"
 #include <cmath>
+#include "TH1F.h"
 
 // TODO: Canvas divisions
+
+int FastCalibration::countStubs( Module* pFe,  const Event* pEvent, std::string pHistName, uint8_t pParameter )
+{
+	// loop over Modules & Cbcs and count hits separately
+	int cStubCounter = 0;
+
+	//  get histogram to fill
+	//TH1F* cTmpHist = ( TH1F* )getHist( pFe, pHistName );
+
+	for ( auto cCbc : pFe->fCbcVector )
+	{
+		if ( pEvent->StubBit( cCbc->getFeId(), cCbc->getCbcId() ) )
+		{
+		  //cTmpHist->Fill( pParameter );
+			cStubCounter++;
+		}
+	}
+	return cStubCounter;
+}
 
 void FastCalibration::ScanVplus()
 {
@@ -131,7 +151,7 @@ void FastCalibration::Validate()
 			}
 		}
 	}
-
+	
 	// Now Take Data
 
 	uint32_t cTotalEvents = 200;
@@ -140,20 +160,26 @@ void FastCalibration::Validate()
 	accept( cReader );
 
 	std::cout << "Taking data ... " << std::endl;
-
+	uint8_t pStartLatency =0;
+	uint8_t pLatencyRange =10;
+	for ( uint8_t cLat = pStartLatency; cLat < pStartLatency + pLatencyRange; cLat++ )
+	  {
 	for ( auto& cShelve : fShelveVector )
 	{
 		for ( BeBoard* pBoard : cShelve->fBoardVector )
 		{
 			uint32_t cN = 1;
 			uint32_t cNthAcq = 0;
-
+			//take out the below line
+			uint32_t cNStubs =0;
+			//take out the above line
 			fBeBoardInterface->Start( pBoard );
 
 			while ( cN <=  cTotalEvents )
 			{
 				// Run( pBoard, cNthAcq );
 				fBeBoardInterface->ReadData( pBoard, cNthAcq, false );
+			
 				const Event* cEvent = fBeBoardInterface->GetNextEvent( pBoard );
 				// Loop over Events from this Acquisition
 				while ( cEvent )
@@ -162,6 +188,14 @@ void FastCalibration::Validate()
 					if ( cN > cTotalEvents )
 						break;
 
+
+		                        //std::cout<<"counting from event: "<<cEvent<<std::endl;
+		      
+					for ( auto cFe : pBoard->fModuleVector )
+					  cNStubs += countStubs( cFe, cEvent, "module_stub_latency", cLat );
+					cN++;
+
+					/*
 					uint32_t cHitCounter = 0;
 					for ( auto cFe : pBoard->fModuleVector )
 					{
@@ -181,17 +215,21 @@ void FastCalibration::Validate()
 						}
 					}
 					cN++;
-
+					*/
 					if ( cN <= cTotalEvents )
 						cEvent = fBeBoardInterface->GetNextEvent( pBoard );
 					else break;
 				}
+				std::cout<<"stubcount: "<< cNStubs <<std::endl;
 				cNthAcq++;
 			} // End of Analyze Events of last Acquistion loop
 			fBeBoardInterface->Stop( pBoard, cNthAcq );
+			//state out the below line
+			std::cout << "Stub Latency " << +cLat << " Stubs " << cNStubs  << " Events " << cN << std::endl;
+			//take oput the above line
 		}
 	}
-
+	  }
 	// done with datataking, now iterate over ProfileMap, find corresponding validation hist in member map and fill it with the deviation of the bin content from the mean bin content, then draw it to canvas
 	for ( auto& cHist : fHistMap )
 	{
@@ -443,6 +481,7 @@ void FastCalibration::measureSCurves( bool pOffset, int  pTGrpId )
 				{
 					// Run( pBoard, cNthAcq );
 					fBeBoardInterface->ReadData( pBoard, cNthAcq, false );
+					
 					const Event* cEvent = fBeBoardInterface->GetNextEvent( pBoard );
 
 					// Loop over Events from this Acquisition

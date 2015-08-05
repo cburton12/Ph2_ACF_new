@@ -190,7 +190,9 @@ void HybridTester::ScanThreshold()
 				{
 					// Run( pBoard, cNthAcq );
 					if ( cN > cEventsperVcth ) break;
+
 					fBeBoardInterface->ReadData( pBoard, cNthAcq, false );
+
 					const Event* cEvent = fBeBoardInterface->GetNextEvent( pBoard );
 
 					// Loop over Events from this Acquisition

@@ -1,6 +1,7 @@
 <?xml version='1.0' encoding = 'UTF-8' ?>
 <HwDescription>
-    <Connections name="file://settings/connections_slc6.xml"/>
+    <!--<Connections name="file://settings/connections_slc6.xml"/>-->
+    <Connections name="file://settings/connections_2CBC.xml"/>
 
     <Shelve Id="0" >
         <BeBoard Id="0" connectionId="board0" boardType="GLIB">
@@ -16,12 +17,12 @@
 
             <!-- Commissioning Mode -->
             <!-- set to 1 to enable commissioning mode -->
-            <Register name="COMMISSIONNING_MODE_RQ"> 0 </Register>
+            <Register name="COMMISSIONNING_MODE_RQ"> 1 </Register>
             <!-- set to 1 to enable test pulse in commissioning mode -->
             <Register name="COMMISSIONNING_MODE_CBC_TEST_PULSE_VALID"> 0 </Register>
             <Register name="COMMISSIONNING_MODE_DELAY_AFTER_FAST_RESET"> 50 </Register>
-            <Register name="COMMISSIONNING_MODE_DELAY_AFTER_L1A"> 400 </Register>
-            <Register name="COMMISSIONNING_MODE_DELAY_AFTER_TEST_PULSE"> 201 </Register>
+            <Register name="COMMISSIONNING_MODE_DELAY_AFTER_L1A"> 300 </Register>
+            <Register name="COMMISSIONNING_MODE_DELAY_AFTER_TEST_PULSE"> 202 </Register>
 
             <!-- Trigger -->
             <!-- set to 1 to use external triggers -->

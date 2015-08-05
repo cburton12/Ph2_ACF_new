@@ -78,6 +78,7 @@ class FastCalibration : public Tool
 		}
 	}
 	// methods
+	int countStubs( Module* pFe,  const Event* pEvent, std::string pHistName, uint8_t pParameter );
 	void Initialise();  // wants to be called after SystemController::ReadHW, ReadSettings
 	void ScanVplus();
 	void ScanOffset();

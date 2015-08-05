@@ -104,21 +104,21 @@ void Channel::fitHist( uint32_t pEventsperVcth, bool pHole, uint8_t pValue, TStr
 		}
 		// Hole mode
 		else
-		{
-			for ( Int_t cBin = fScurve->GetNbinsX(); cBin >= 1; cBin-- )
-			{
-				double cContent = fScurve->GetBinContent( cBin );
-				if ( !cFirstNon0 )
-				{
-					if ( cContent ) cFirstNon0 = fScurve->GetBinCenter( cBin );
-				}
-				else if ( cContent == 1 )
-				{
-					cFirst1 = fScurve->GetBinCenter( cBin );
-					break;
-				}
-			}
-		}
+		  {
+		    for ( Int_t cBin = fScurve->GetNbinsX(); cBin >= 1; cBin-- )
+		      {
+			double cContent = fScurve->GetBinContent( cBin );
+			if ( !cFirstNon0 )
+			  {
+			    if ( cContent ) cFirstNon0 = fScurve->GetBinCenter( cBin );
+			  }
+			else if ( cContent == 1 )
+			  {
+			    cFirst1 = fScurve->GetBinCenter( cBin );
+			    break;
+			  }
+		      }
+		  }
 
 		// Get rough midpoint & width
 		double cMid = ( cFirst1 + cFirstNon0 ) * 0.5;
