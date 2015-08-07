@@ -40,7 +40,7 @@ class DelayScan : public Tool
   Shelve*  fShelve;
   BeBoard* fBoard ;
   Module*  fFe    ;
-  int fNumEvents, fVplus, fOffset, fChannel, fAmpMax, fAmpMin, fDelayMin, fDelayMax;
+  int fNumEvents, fVplus, fOffset, fChannel, fAmpMax, fAmpMin, fAmpStep, fDelayMin, fDelayMax;
   uint8_t fTestGroup;
 
   CanvasMap     fCanvasMap;

@@ -28,7 +28,7 @@ void DelayScan::Initialize()
       uint32_t DelayRange = fDelayMax - fDelayMin;
       std::cout<<"ampr: "<<AmpRange<<"      "<<"dely: "<<DelayRange<<std::endl;
       TString cHistName = Form( "Hist2D_Cbc%d" , cCbcId );
-      TH2F* cAmpDel = new TH2F( cHistName , cHistName , AmpRange , fAmpMin , fAmpMax ,fDelayMax-fDelayMin , fDelayMin , fDelayMax );
+      TH2F* cAmpDel = new TH2F( cHistName , cHistName , AmpRange/fAmpStep , fAmpMin , fAmpMax ,fDelayMax-fDelayMin , fDelayMin , fDelayMax );
       cAmpDel->GetXaxis()->SetTitle( "Pulse Amplitude" );
       cAmpDel->GetYaxis()->SetTitle( "Pulse Delay" );
       f2DHistMap[cCbc] = cAmpDel;
@@ -61,7 +61,7 @@ void DelayScan::ScanTestPulseDelay(uint32_t cCoarseDelay)
 
 void DelayScan::ScanTestPulseAmplitude(uint32_t cFineDelay)
 {
-  for (uint32_t cAmp = fAmpMin; cAmp<fAmpMax; cAmp++)
+  for (uint32_t cAmp = fAmpMin; cAmp<fAmpMax; cAmp+=fAmpStep)
     {
       setSystemTestPulse( cAmp , fChannel );
       vector1D VCthMid = ScanVCth(cFineDelay,cAmp);  // data taken here
@@ -92,7 +92,7 @@ void DelayScan::ScanTestPulseAmplitude(uint32_t cFineDelay)
 
 vector1D DelayScan::ScanVCth(uint32_t cFineDelay , uint32_t cAmp)
 {
-  uint32_t cVCth = fVplus - 15 ;
+  uint32_t cVCth = fVplus;
   uint32_t NZeros = 0;
   
   while (NZeros < 5)
@@ -147,7 +147,7 @@ vector1D DelayScan::MakeScurve(ThreshMap ThresholdMap , uint32_t cFineDelay , ui
   for (auto& cCbc : fFe->fCbcVector)
     {
       uint32_t cCbcId = cCbc->getCbcId();
-      uint32_t cVCthMin = fVplus - 15;
+      uint32_t cVCthMin = fVplus;
 
       // Canvas recall
       auto cCanvas = fCanvasMap.find(cCbc)->second;
@@ -199,12 +199,14 @@ vector1D DelayScan::MakeScurve(ThreshMap ThresholdMap , uint32_t cFineDelay , ui
 
       // Drawing left panel
       cCanvas->cd(1);
-      cScurve->Draw("hist c");
+      cScurve->Draw("hist p");
       cFit->Draw("same");
       
       // TEMPORARY SOLUTION: need to find the midpoint from the fit, not from the estimate
-      cMidPoints.push_back(cMiddle);
-      // ADD MIDPOINT FINDING CODE HERE...
+      //cMidPoints.push_back(cMiddle);
+      
+      uint32_t cMiddleFit = cFit->GetX( 0.5 , cFirst1 , cFirstNon0 );
+      cMidPoints.push_back(cMiddleFit);
 
       cCanvas->Update();
     }
@@ -232,15 +234,11 @@ void DelayScan::setDelayAndTestGroup( uint32_t pDelay )
   uint8_t cCoarseDelay = floor( pDelay  / 25 );
   uint8_t cFineDelay = ( cCoarseDelay * 25 ) + 24 - pDelay;
 
-  std::cout << "Current Time: " << pDelay << std::endl;
+  std::cout << "Current Time: " << pDelay<<" = "<<cCoarseDelay+cFineDelay<< std::endl;
   BeBoardRegWriter cBeBoardWriter( fBeBoardInterface, DELAY_AF_TEST_PULSE, cCoarseDelay );
   this->accept( cBeBoardWriter );
-  //std::cout<<"fine"<<int(cFineDelay)<<"     "<<"grpID"<<int(fTestGroup)<<std::endl;
   CbcRegWriter cWriter( fCbcInterface, "SelTestPulseDel&ChanGroup", to_reg( cFineDelay, fTestGroup ) );
   this->accept( cWriter );
-
-//   BeBoardRegWriter cBeBoardWriter( fBeBoardInterface, DELAY_AF_TEST_PULSE, pDelay );
-//   this->accept( cBeBoardWriter );
 }
 
 
@@ -267,6 +265,9 @@ void DelayScan::parseSettings()
   cSetting = fSettingsMap.find( "AmpMin" );
   if ( cSetting != std::end( fSettingsMap ) ) fAmpMin = cSetting->second;
   else fAmpMin = 5;
+  cSetting = fSettingsMap.find( "AmpStep" );
+  if ( cSetting != std::end( fSettingsMap ) ) fAmpStep = cSetting->second;
+  else fAmpStep = 1;
 
   cSetting = fSettingsMap.find( "DelayMax" );
   if ( cSetting != std::end( fSettingsMap ) ) fDelayMax = cSetting->second;
@@ -291,13 +292,8 @@ void DelayScan::setSystemTestPulse( uint8_t pTPAmplitude, uint8_t pChannelId )
   
   //calculate the right test group
   this->fTestGroup = findTestGroup( pChannelId );
-  
-  uint8_t cRegValue =  to_reg( 0, fTestGroup );
-  //cRegVec.push_back( std::make_pair( "SelTestPulseDel&ChanGroup",  cRegValue ) );
-  
-  //set the value of test pulsepot registrer and MiscTestPulseCtrl&AnalogMux register
+
   cRegVec.push_back( std::make_pair( "MiscTestPulseCtrl&AnalogMux", 0xD1 ) );
-  
   cRegVec.push_back( std::make_pair( "TestPulsePot", pTPAmplitude ) );
   cRegVec.push_back( std::make_pair( "Vplus",  fVplus ) );
   
