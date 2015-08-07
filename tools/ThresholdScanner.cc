@@ -2,8 +2,25 @@
 
 ThresholdScanner::ThresholdScanner() {};
 
+void parseSettings()
+{
+    // transfering the settings from the map to the global variables
+    auto cSetting = fSettingsMap.find("NumEvents");
+    fNumEvents = cSetting->second;
+    auto cSetting = fSettingsMap.find("Vplus");
+    fVplus = cSetting->second;
+    auto cSetting = fSettingsMap.find("Channel");
+    fChannel = cSetting->second;
+    auto cSetting = fSettingsMap.find("AmpMin");
+    fAmpMin = cSetting->second;
+    auto cSetting = fSettingsMap.find("AmpMax");
+    fAmpMax = cSetting->second;
+}
+
 void ThresholdScanner::Initialize()
 {
+    parseSettings();
+    
   NumEvents=500;
   step = 1;
   range = 10;
@@ -11,13 +28,6 @@ void ThresholdScanner::Initialize()
   doSingleChannel=0;
   doMakeScurve=0;
   ChannelToTest=10;
-  
-  int nEl=0;
-  for (int ii=0; ii!=10; ii+=1)
-    {
-      fVCthVec.push_back(std::make_pair(nEl,ii));
-      nEl++;
-    }
   
   fShelve = fShelveVector[0]; //only one shelve and board
   fBoard = fShelve->fBoardVector[0];
